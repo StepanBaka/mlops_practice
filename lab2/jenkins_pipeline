@@ -1,10 +1,58 @@
 pipeline {
     agent any
+
+    environment {
+        PYTHONUNBUFFERED = '1'
+    }
+
     stages {
-     stage('Hello') {
-                steps {
-                    echo 'Hello world'
-                }
+        stage('Checkout') {
+            steps {
+                checkout scm
             }
-     }
+        }
+
+        stage('Install dependencies') {
+            steps {
+                sh '''
+                    python3 -m venv venv
+                    . venv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r lab2/requirements.txt
+                '''
+            }
+        }
+
+        stage('Prepare data') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    python3 lab2/data_pipeline.py fetch
+                '''
+            }
+        }
+
+        stage('Train model') {
+            steps {
+                sh '''
+                    . venv/bin/activate
+                    python3 lab2/data_pipeline.py train
+                '''
+            }
+        }
+    }
+
+    post {
+        always {
+            archiveArtifacts artifacts: 'lab2/models/*.pkl, lab2/data/*.csv', allowEmptyArchive: true
+        }
+
+        success {
+            echo 'Pipeline completed successfully.'
+        }
+
+        failure {
+            echo 'Pipeline failed.'
+        }
+    }
 }
